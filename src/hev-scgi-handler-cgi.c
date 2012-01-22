@@ -149,7 +149,7 @@ G_MODULE_EXPORT void hev_scgi_handler_module_handle(HevSCGIHandler *self, GObjec
 	{
 		g_critical("%s:%d[%s]=>(%s)", __FILE__, __LINE__,
 					__FUNCTION__, error->message);
-		g_error_message(error);
+		g_error__free(error);
 	}
 }
 
