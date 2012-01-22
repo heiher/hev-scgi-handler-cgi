@@ -24,8 +24,6 @@
 
 static void req_hash_table_foreach_handler(gpointer key,
 			gpointer value, gpointer user_data);
-static void cgi_child_watch_handler(GPid pid, gint status,
-			gpointer user_data);
 static void req_input_stream_read_async_handler(GObject *source_object,
 			GAsyncResult *res, gpointer user_data);
 static void res_output_stream_write_async_handler(GObject *source_object,
@@ -105,8 +103,8 @@ G_MODULE_EXPORT void hev_scgi_handler_module_handle(HevSCGIHandler *self, GObjec
 	g_hash_table_foreach(req_hash_table, req_hash_table_foreach_handler, scgi_task);
 
 	if(g_spawn_async_with_pipes(HEV_SCGI_HANDLER_CGI_WORK_DIR, argv, envp,
-					G_SPAWN_DO_NOT_REAP_CHILD|G_SPAWN_STDERR_TO_DEV_NULL,
-					NULL, NULL, &pid, &in, &out, NULL, &error))
+					G_SPAWN_STDERR_TO_DEV_NULL, NULL, NULL,
+					&pid, &in, &out, NULL, &error))
 	{
 		GInputStream *child_input_stream = NULL;
 		GOutputStream *child_output_stream = NULL;
@@ -114,9 +112,6 @@ G_MODULE_EXPORT void hev_scgi_handler_module_handle(HevSCGIHandler *self, GObjec
 		gchar *out_buffer = NULL;
 		guint *in_count = NULL;
 		guint *content_len = NULL;
-
-		g_child_watch_add(pid, cgi_child_watch_handler,
-					scgi_task);
 
 		child_input_stream = g_unix_input_stream_new(out, TRUE);
 		child_output_stream = g_unix_output_stream_new(in, TRUE);
@@ -169,25 +164,16 @@ static void req_hash_table_foreach_handler(gpointer key,
 				key, value);
 }
 
-static void cgi_child_watch_handler(GPid pid, gint status,
-			gpointer user_data)
-{
-	g_debug("%s:%d[%s]", __FILE__, __LINE__, __FUNCTION__);
-
-	g_spawn_close_pid(pid);
-}
-
 static void req_input_stream_read_async_handler(GObject *source_object,
 			GAsyncResult *res, gpointer user_data)
 {
 	GObject *scgi_task = user_data;
 	gssize size = 0;
-	GError *error = NULL;
 
 	g_debug("%s:%d[%s]", __FILE__, __LINE__, __FUNCTION__);
 
 	size = g_input_stream_read_finish(G_INPUT_STREAM(source_object),
-				res, &error);
+				res, NULL);
 	if(0 <= size)
 	{
 		GOutputStream *child_output_stream = NULL;
@@ -203,10 +189,6 @@ static void req_input_stream_read_async_handler(GObject *source_object,
 	}
 	else
 	{
-		g_critical("%s:%d[%s]=>(%s)", __FILE__, __LINE__,
-					__FUNCTION__, error->message);
-		g_error_free(error);
-
 		g_object_unref(scgi_task);
 	}
 }
@@ -216,13 +198,12 @@ static void res_output_stream_write_async_handler(GObject *source_object,
 {
 	GObject *scgi_task = user_data;
 	gssize size = 0;
-	GError *error = NULL;
 	GInputStream *child_input_stream = NULL;
 
 	g_debug("%s:%d[%s]", __FILE__, __LINE__, __FUNCTION__);
 
 	size = g_output_stream_write_finish(G_OUTPUT_STREAM(source_object),
-				res, &error);
+				res, NULL);
 
 	child_input_stream = g_object_get_data(scgi_task,
 				"child_input_stream");
@@ -236,7 +217,7 @@ static void res_output_stream_write_async_handler(GObject *source_object,
 					4096, G_PRIORITY_DEFAULT, NULL,
 					child_input_stream_read_async_handler, scgi_task);
 	}
-	else if(0 == size)
+	else if(0 >= size)
 	{
 		g_input_stream_close_async(child_input_stream,
 					G_PRIORITY_DEFAULT, NULL, 
@@ -245,12 +226,6 @@ static void res_output_stream_write_async_handler(GObject *source_object,
 
 		g_object_unref(scgi_task);
 	}
-	else
-	{
-		g_critical("%s:%d[%s]=>(%s)", __FILE__, __LINE__,
-					__FUNCTION__, error->message);
-		g_error_free(error);
-	}
 }
 
 static void child_input_stream_read_async_handler(GObject *source_object,
@@ -258,12 +233,11 @@ static void child_input_stream_read_async_handler(GObject *source_object,
 {
 	GObject *scgi_task = user_data;
 	gssize size = 0;
-	GError *error = NULL;
 
 	g_debug("%s:%d[%s]", __FILE__, __LINE__, __FUNCTION__);
 
 	size = g_input_stream_read_finish(G_INPUT_STREAM(source_object),
-				res, &error);
+				res, NULL);
 	if(0 <= size)
 	{
 		GObject *scgi_response = NULL;
@@ -280,9 +254,7 @@ static void child_input_stream_read_async_handler(GObject *source_object,
 	}
 	else
 	{
-		g_critical("%s:%d[%s]=>(%s)", __FILE__, __LINE__,
-					__FUNCTION__, error->message);
-		g_error_free(error);
+		g_object_unref(scgi_task);
 	}
 }
 
@@ -291,12 +263,11 @@ static void child_output_stream_write_async_handler(GObject *source_object,
 {
 	GObject *scgi_task = user_data;
 	gssize size = 0;
-	GError *error = NULL;
 
 	g_debug("%s:%d[%s]", __FILE__, __LINE__, __FUNCTION__);
 
 	size = g_output_stream_write_finish(G_OUTPUT_STREAM(source_object),
-				res, &error);
+				res, NULL);
 
 	if(0 < size)
 	{
@@ -317,20 +288,12 @@ static void child_output_stream_write_async_handler(GObject *source_object,
 					child_input_stream_read_async_handler,
 					scgi_task);
 	}
-	else if(0 == size)
+	else if(0 >= size)
 	{
 		g_output_stream_close_async(G_OUTPUT_STREAM(source_object),
 					G_PRIORITY_DEFAULT, NULL, 
 					child_output_stream_close_async_handler,
 					scgi_task);
-
-		g_object_unref(scgi_task);
-	}
-	else
-	{
-		g_critical("%s:%d[%s]=>(%s)", __FILE__, __LINE__,
-					__FUNCTION__, error->message);
-		g_error_free(error);
 
 		g_object_unref(scgi_task);
 	}
