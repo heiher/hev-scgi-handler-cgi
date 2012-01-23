@@ -16,7 +16,7 @@
 #include "hev-scgi-response.h"
 
 #define HEV_SCGI_HANDLER_CGI_NAME		"HevSCGIHandlerCGI"
-#define HEV_SCGI_HANDLER_CGI_VERSION	"0.0.1"
+#define HEV_SCGI_HANDLER_CGI_VERSION	"0.0.2"
 #define HEV_SCGI_HANDLER_CGI_PATTERN	"^.*\\.php($|\\?).*"
 
 #define HEV_SCGI_HANDLER_CGI_BIN_PATH	"/usr/bin/php-cgi"
@@ -112,6 +112,7 @@ G_MODULE_EXPORT void hev_scgi_handler_module_handle(HevSCGIHandler *self, GObjec
 		gchar *out_buffer = NULL;
 		guint *in_count = NULL;
 		guint *content_len = NULL;
+		guint *is_header_len = NULL;
 
 		child_input_stream = g_unix_input_stream_new(out, TRUE);
 		child_output_stream = g_unix_output_stream_new(in, TRUE);
@@ -132,6 +133,9 @@ G_MODULE_EXPORT void hev_scgi_handler_module_handle(HevSCGIHandler *self, GObjec
 		content_len = g_malloc0(sizeof(guint));
 		g_object_set_data_full(scgi_task, "content_len",
 					content_len, g_free);
+		is_header_len = g_malloc0(sizeof(guint));
+		g_object_set_data_full(scgi_task, "is_header_len",
+					is_header_len, g_free);
 
 		*content_len = content_length;
 
@@ -211,11 +215,25 @@ static void res_output_stream_write_async_handler(GObject *source_object,
 	if(0 < size)
 	{
 		gchar *out_buffer = NULL;
+		guint *is_header_len = NULL;
 
 		out_buffer = g_object_get_data(scgi_task, "out_buffer");
-		g_input_stream_read_async(child_input_stream, out_buffer,
-					4096, G_PRIORITY_DEFAULT, NULL,
-					child_input_stream_read_async_handler, scgi_task);
+		is_header_len = g_object_get_data(scgi_task, "is_header_len");
+
+		if(0 < *is_header_len)
+		{
+			g_output_stream_write_async(G_OUTPUT_STREAM(source_object),
+						out_buffer, *is_header_len, G_PRIORITY_DEFAULT, NULL,
+						res_output_stream_write_async_handler, scgi_task);
+
+			*is_header_len = 0;
+		}
+		else
+		{
+			g_input_stream_read_async(child_input_stream, out_buffer,
+						4096, G_PRIORITY_DEFAULT, NULL,
+						child_input_stream_read_async_handler, scgi_task);
+		}
 	}
 	else if(0 >= size)
 	{
@@ -243,14 +261,47 @@ static void child_input_stream_read_async_handler(GObject *source_object,
 		GObject *scgi_response = NULL;
 		GOutputStream *output_stream = NULL;
 		gchar *out_buffer = NULL;
+		guint *is_header_len = NULL;
 
 		out_buffer = g_object_get_data(scgi_task, "out_buffer");
 		scgi_response = hev_scgi_task_get_response(HEV_SCGI_TASK(scgi_task));
 		output_stream = hev_scgi_response_get_output_stream(HEV_SCGI_RESPONSE(scgi_response));
+		is_header_len = g_object_get_data(scgi_task, "is_header_len");
+		
+		if(0 == *is_header_len)
+		{
+			gchar *header_end = NULL;
 
-		g_output_stream_write_async(G_OUTPUT_STREAM(output_stream),
-					out_buffer, size, G_PRIORITY_DEFAULT, NULL,
-					res_output_stream_write_async_handler, scgi_task);
+			if(header_end = g_strstr_len(out_buffer, size, "\r\n\r\n"))
+			{
+				if(!g_strstr_len(out_buffer, (header_end-out_buffer), "Status:"))
+				{
+					*is_header_len = size;
+
+					g_output_stream_write_async(output_stream,
+								"Status: 200 OK\r\n", 16, G_PRIORITY_DEFAULT, NULL,
+								res_output_stream_write_async_handler, scgi_task);
+				}
+				else
+				{
+					g_output_stream_write_async(output_stream,
+								out_buffer, size, G_PRIORITY_DEFAULT, NULL,
+								res_output_stream_write_async_handler, scgi_task);
+				}
+			}
+			else
+			{
+				g_output_stream_write_async(output_stream,
+							out_buffer, size, G_PRIORITY_DEFAULT, NULL,
+							res_output_stream_write_async_handler, scgi_task);
+			}
+		}
+		else
+		{
+			g_output_stream_write_async(output_stream,
+						out_buffer, size, G_PRIORITY_DEFAULT, NULL,
+						res_output_stream_write_async_handler, scgi_task);
+		}
 	}
 	else
 	{
