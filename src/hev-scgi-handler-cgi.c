@@ -285,7 +285,7 @@ static void child_output_stream_write_async_handler(GObject *source_object,
 		len = *content_len - *in_count;
 		g_input_stream_read_async(input_stream, in_buffer,
 					(len<4096)?len:4096, G_PRIORITY_DEFAULT, NULL,
-					child_input_stream_read_async_handler,
+					req_input_stream_read_async_handler,
 					scgi_task);
 	}
 	else if(0 >= size)
