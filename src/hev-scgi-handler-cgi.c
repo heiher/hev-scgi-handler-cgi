@@ -297,6 +297,7 @@ static void child_input_stream_read_async_handler(GObject *source_object,
 			}
 			else
 			{
+				*is_checked = TRUE;
 				g_output_stream_write_async(output_stream,
 							out_buffer, *out_count, G_PRIORITY_DEFAULT, NULL,
 							res_output_stream_write_async_handler, scgi_task);
