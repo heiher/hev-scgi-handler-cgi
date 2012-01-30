@@ -288,7 +288,7 @@ static void child_input_stream_read_async_handler(GObject *source_object,
 			if((FALSE==(*is_checked)) &&
 						(header_end=g_strstr_len(out_buffer,
 												 *out_count, "\r\n\r\n")) &&
-						(NULL==g_strstr_len(out_buffer, out_buffer-header_end,
+						(NULL==g_strstr_len(out_buffer, header_end-out_buffer,
 									  "Status:")))
 			{
 				g_output_stream_write_async(output_stream,
