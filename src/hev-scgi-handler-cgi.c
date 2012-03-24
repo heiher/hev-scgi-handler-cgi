@@ -162,6 +162,8 @@ static void hev_scgi_handler_spawn_child_setup_handler(gpointer user_data)
 
 	g_debug("%s:%d[%s]", __FILE__, __LINE__, __FUNCTION__);
 
+	g_unix_set_fd_nonblocking(task_data->fd, FALSE, NULL);
+
 	dup2(task_data->fd, 0);
 	dup2(task_data->fd, 1);
 }
