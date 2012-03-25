@@ -172,9 +172,12 @@ static void hev_scgi_handler_child_watch_handler(GPid pid, gint status,
 			gpointer user_data)
 {
 	GObject *scgi_task = G_OBJECT(user_data);
+	HevSCGIHandlerCGITaskData *task_data = NULL;
 
 	g_debug("%s:%d[%s]", __FILE__, __LINE__, __FUNCTION__);
 
+	task_data = g_object_get_data(scgi_task, "data");
+	g_unix_set_fd_nonblocking(task_data->fd, TRUE, NULL);
 	g_spawn_close_pid(pid);
 	g_object_unref(scgi_task);
 }
