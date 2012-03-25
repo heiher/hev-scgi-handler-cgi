@@ -104,7 +104,7 @@ G_MODULE_EXPORT void hev_scgi_handler_module_handle(HevSCGIHandler *self, GObjec
 		g_malloc0_n(g_hash_table_size(task_data->req_hash_table)+1, sizeof(gchar *));
 	g_hash_table_foreach(task_data->req_hash_table, req_hash_table_foreach_handler, scgi_task);
 
-	str = g_hash_table_lookup(task_data->req_hash_table, "SCRIPT_FILENAME");
+	str = g_hash_table_lookup(task_data->req_hash_table, "SCRIPT_FILE");
 	argv = g_malloc0_n(2, sizeof(gchar *));
 	if(str)
 	{
