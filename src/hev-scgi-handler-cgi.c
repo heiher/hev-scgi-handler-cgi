@@ -164,8 +164,8 @@ static void hev_scgi_handler_spawn_child_setup_handler(gpointer user_data)
 
 	g_unix_set_fd_nonblocking(task_data->fd, FALSE, NULL);
 
-	dup2(task_data->fd, 0);
-	dup2(task_data->fd, 1);
+	dup2(task_data->fd, STDIN_FILENO);
+	dup2(task_data->fd, STDOUT_FILENO);
 }
 
 static void hev_scgi_handler_child_watch_handler(GPid pid, gint status,
