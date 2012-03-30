@@ -16,7 +16,7 @@
 #include "hev-scgi-response.h"
 
 #define HEV_SCGI_HANDLER_CGI_NAME		"HevSCGIHandlerCGI"
-#define HEV_SCGI_HANDLER_CGI_VERSION	"0.0.5"
+#define HEV_SCGI_HANDLER_CGI_VERSION	"0.0.6"
 #define HEV_SCGI_HANDLER_CGI_PATTERN	".*"
 
 #define HEV_SCGI_HANDLER_CGI_BIN_PATH	"/usr/bin/php-cgi"
@@ -113,8 +113,21 @@ G_MODULE_EXPORT void hev_scgi_handler_module_handle(HevSCGIHandler *self, GObjec
 	}
 	else
 	{
-		argv[0] = g_strdup(HEV_SCGI_HANDLER_CGI_BIN_PATH);
-		workdir = g_strdup(HEV_SCGI_HANDLER_CGI_WORK_DIR);
+		GKeyFile *config = NULL;
+
+		config = hev_scgi_handler_get_config(self);
+		if(config)
+		{
+			argv[0] = g_key_file_get_string(config, "Module",
+						"CGIBinPath", NULL);
+			workdir = g_key_file_get_string(config, "Module",
+						"WorkDir", NULL);
+		}
+
+		if(NULL == argv[0])
+		  argv[0] = g_strdup(HEV_SCGI_HANDLER_CGI_BIN_PATH);
+		if(NULL == workdir)
+		  workdir = g_strdup(HEV_SCGI_HANDLER_CGI_WORK_DIR);
 	}
 
 	if(g_spawn_async(workdir, argv, task_data->envp, G_SPAWN_DO_NOT_REAP_CHILD,
