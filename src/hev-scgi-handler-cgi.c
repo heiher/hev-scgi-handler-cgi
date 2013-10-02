@@ -280,7 +280,7 @@ static void hev_scgi_handler_cgi_handle(HevSCGIHandler *handler, GObject *scgi_t
 	g_object_set_data_full(scgi_task, "data", task_data,
 				hev_scgi_handler_cgi_task_data_destroy_handler);
 
-	connection = hev_scgi_task_get_socket_connection(HEV_SCGI_TASK(scgi_task));
+	connection = G_SOCKET_CONNECTION(hev_scgi_task_get_socket_connection(HEV_SCGI_TASK(scgi_task)));
 	socket = g_socket_connection_get_socket(G_SOCKET_CONNECTION(connection));
 	task_data->fd = g_socket_get_fd(socket);
 
