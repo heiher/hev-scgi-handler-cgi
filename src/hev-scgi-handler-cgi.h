@@ -1,9 +1,9 @@
 /*
  ============================================================================
  Name        : hev-scgi-handler-cgi.h
- Author      : Heiher <admin@heiher.info>
- Version     : 0.0.2
- Copyright   : Copyright (C) 2012 everyone.
+ Author      : Heiher <root@heiher.info>
+ Version     : 0.0.8
+ Copyright   : Copyright (C) 2013 everyone.
  Description : 
  ============================================================================
  */

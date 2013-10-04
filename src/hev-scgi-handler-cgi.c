@@ -1,9 +1,9 @@
 /*
  ============================================================================
  Name        : hev-scgi-handler-cgi.c
- Author      : Heiher <admin@heiher.info>
- Version     : 0.0.2
- Copyright   : Copyright (C) 2012 everyone.
+ Author      : Heiher <root@heiher.info>
+ Version     : 0.0.8
+ Copyright   : Copyright (C) 2013 everyone.
  Description : 
  ============================================================================
  */
@@ -13,7 +13,7 @@
 #include "hev-scgi-handler-cgi.h"
 
 #define HEV_SCGI_HANDLER_CGI_NAME		"HevSCGIHandlerCGI"
-#define HEV_SCGI_HANDLER_CGI_VERSION	"0.0.7"
+#define HEV_SCGI_HANDLER_CGI_VERSION	"0.0.8"
 
 #define HEV_SCGI_HANDLER_CGI_BIN_PATH	"/usr/bin/php-cgi"
 #define HEV_SCGI_HANDLER_CGI_WORK_DIR	"/tmp"
@@ -266,7 +266,7 @@ static void hev_scgi_handler_cgi_handle(HevSCGIHandler *handler, GObject *scgi_t
 	gchar *str = NULL, **argv = NULL, *workdir = NULL;
 	GPid pid = 0;
 	GError *error = NULL;
-	GSocketConnection *connection = NULL;
+	GObject *connection = NULL;
 	GSocket *socket = NULL;
 
 	g_debug("%s:%d[%s]", __FILE__, __LINE__, __FUNCTION__);
@@ -280,7 +280,7 @@ static void hev_scgi_handler_cgi_handle(HevSCGIHandler *handler, GObject *scgi_t
 	g_object_set_data_full(scgi_task, "data", task_data,
 				hev_scgi_handler_cgi_task_data_destroy_handler);
 
-	connection = G_SOCKET_CONNECTION(hev_scgi_task_get_socket_connection(HEV_SCGI_TASK(scgi_task)));
+	connection = hev_scgi_task_get_socket_connection(HEV_SCGI_TASK(scgi_task));
 	socket = g_socket_connection_get_socket(G_SOCKET_CONNECTION(connection));
 	task_data->fd = g_socket_get_fd(socket);
 
