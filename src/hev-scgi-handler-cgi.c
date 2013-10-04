@@ -10,6 +10,13 @@
 
 #include <hev-scgi-1.0.h>
 
+#ifdef G_OS_UNIX
+#include <unistd.h>
+#include <sys/types.h>
+#include <pwd.h>
+#include <grp.h>
+#endif /* G_OS_UNIX */
+
 #include "hev-scgi-handler-cgi.h"
 
 #define HEV_SCGI_HANDLER_CGI_NAME		"HevSCGIHandlerCGI"
@@ -45,6 +52,11 @@ struct _HevSCGIHandlerCGITaskData
 	GObject *scgi_request;
 	GObject *scgi_response;
 	GHashTable *req_hash_table;
+
+#ifdef G_OS_UNIX
+	gchar *user;
+	gchar *group;
+#endif
 
 	gchar **envp;
 	guint envi;
@@ -293,6 +305,7 @@ static void hev_scgi_handler_cgi_handle(HevSCGIHandler *handler, GObject *scgi_t
 		g_malloc0_n(g_hash_table_size(task_data->req_hash_table)+1, sizeof(gchar *));
 	g_hash_table_foreach(task_data->req_hash_table, req_hash_table_foreach_handler, scgi_task);
 
+	/* Script file and Work dir */
 	str = g_hash_table_lookup(task_data->req_hash_table, "SCRIPT_FILE");
 	argv = g_malloc0_n(2, sizeof(gchar *));
 	if(str)
@@ -302,16 +315,29 @@ static void hev_scgi_handler_cgi_handle(HevSCGIHandler *handler, GObject *scgi_t
 	}
 	else
 	{
-		argv[0] = g_key_file_get_string(priv->config, "Module",
-					"CGIBinPath", NULL);
-		workdir = g_key_file_get_string(priv->config, "Module",
-					"WorkDir", NULL);
+		argv[0] = g_key_file_get_string(priv->config, "Module", "CGIBinPath", NULL);
+		workdir = g_key_file_get_string(priv->config, "Module", "WorkDir", NULL);
 
 		if(NULL == argv[0])
 		  argv[0] = g_strdup(HEV_SCGI_HANDLER_CGI_BIN_PATH);
 		if(NULL == workdir)
 		  workdir = g_strdup(HEV_SCGI_HANDLER_CGI_WORK_DIR);
 	}
+
+#ifdef G_OS_UNIX
+	/* User and Group */
+	str = g_hash_table_lookup(task_data->req_hash_table, "_USER");
+	if(str)
+	  task_data->user = g_strdup(str);
+	else
+	  task_data->user = g_key_file_get_string(priv->config, "Module", "User", NULL);
+
+	str = g_hash_table_lookup(task_data->req_hash_table, "_GROUP");
+	if(str)
+	  task_data->group = g_strdup(str);
+	else
+	  task_data->group = g_key_file_get_string(priv->config, "Module", "Group", NULL);
+#endif /* G_OS_UNIX */
 
 	if(g_spawn_async(workdir, argv, task_data->envp, G_SPAWN_DO_NOT_REAP_CHILD,
 					hev_scgi_handler_spawn_child_setup_handler,
@@ -348,6 +374,8 @@ static void hev_scgi_handler_cgi_task_data_destroy_handler(gpointer data)
 
 	g_debug("%s:%d[%s]", __FILE__, __LINE__, __FUNCTION__);
 
+	g_free(task_data->user);
+	g_free(task_data->group);
 	g_strfreev(task_data->envp);
 	g_slice_free(HevSCGIHandlerCGITaskData, task_data);
 }
@@ -357,6 +385,43 @@ static void hev_scgi_handler_spawn_child_setup_handler(gpointer user_data)
 	HevSCGIHandlerCGITaskData *task_data = user_data;
 
 	g_debug("%s:%d[%s]", __FILE__, __LINE__, __FUNCTION__);
+
+#ifdef G_OS_UNIX
+	if(task_data->group)
+	{
+		struct group *grp = NULL;
+
+		if(NULL == (grp = getgrnam(task_data->group)))
+		  g_error("%s:%d[%s]=>(%s)", __FILE__, __LINE__,
+					  __FUNCTION__, "Get group failed!");
+
+		if(-1 == setgid(grp->gr_gid))
+		  g_error("%s:%d[%s]=>(%s)", __FILE__, __LINE__,
+					  __FUNCTION__, "Set gid failed!");
+		if(-1 == setgroups(0, NULL))
+		  g_error("%s:%d[%s]=>(%s)", __FILE__, __LINE__,
+					  __FUNCTION__, "Set groups failed!");
+		if(task_data->user)
+		{
+			if(-1 == initgroups(task_data->user, grp->gr_gid))
+			  g_error("%s:%d[%s]=>(%s)", __FILE__, __LINE__,
+						  __FUNCTION__, "Init groups failed!");
+		}
+	}
+
+	if(task_data->user)
+	{
+		struct passwd *pwd = NULL;
+
+		if(NULL == (pwd = getpwnam(task_data->user)))
+		  g_error("%s:%d[%s]=>(%s)", __FILE__, __LINE__,
+					  __FUNCTION__, "Get user failed!");
+
+		if(-1 == setuid(pwd->pw_uid))
+		  g_error("%s:%d[%s]=>(%s)", __FILE__, __LINE__,
+					  __FUNCTION__, "Set uid failed!");
+	}
+#endif /* G_OS_UNIX */
 
 	g_unix_set_fd_nonblocking(task_data->fd, FALSE, NULL);
 
