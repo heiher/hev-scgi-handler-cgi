@@ -49,6 +49,7 @@ typedef struct _HevSCGIHandlerCGITaskData HevSCGIHandlerCGITaskData;
 
 struct _HevSCGIHandlerCGITaskData
 {
+	GObject *scgi_task;
 	GObject *scgi_request;
 	GObject *scgi_response;
 	GHashTable *req_hash_table;
@@ -84,7 +85,7 @@ static void hev_scgi_handler_cgi_handle(HevSCGIHandler *self, GObject *scgi_task
 
 static void req_hash_table_foreach_handler(gpointer key,
 			gpointer value, gpointer user_data);
-static void hev_scgi_handler_cgi_task_data_destroy_handler(gpointer data);
+static void hev_scgi_handler_cgi_task_data_free(HevSCGIHandlerCGITaskData *task_data);
 static void hev_scgi_handler_spawn_child_setup_handler(gpointer user_data);
 static void hev_scgi_handler_child_watch_handler(GPid pid, gint status,
 			gpointer user_data);
@@ -289,13 +290,12 @@ static void hev_scgi_handler_cgi_handle(HevSCGIHandler *handler, GObject *scgi_t
 		g_critical("%s:%d[%s]", __FILE__, __LINE__, __FUNCTION__);
 		return;
 	}
-	g_object_set_data_full(scgi_task, "data", task_data,
-				hev_scgi_handler_cgi_task_data_destroy_handler);
 
 	connection = hev_scgi_task_get_socket_connection(HEV_SCGI_TASK(scgi_task));
 	socket = g_socket_connection_get_socket(G_SOCKET_CONNECTION(connection));
 	task_data->fd = g_socket_get_fd(socket);
 
+	task_data->scgi_task = scgi_task;
 	task_data->scgi_request = hev_scgi_task_get_request(HEV_SCGI_TASK(scgi_task));
 	task_data->scgi_response = hev_scgi_task_get_response(HEV_SCGI_TASK(scgi_task));
 	task_data->req_hash_table =
@@ -303,7 +303,7 @@ static void hev_scgi_handler_cgi_handle(HevSCGIHandler *handler, GObject *scgi_t
 
 	task_data->envp =
 		g_malloc0_n(g_hash_table_size(task_data->req_hash_table)+1, sizeof(gchar *));
-	g_hash_table_foreach(task_data->req_hash_table, req_hash_table_foreach_handler, scgi_task);
+	g_hash_table_foreach(task_data->req_hash_table, req_hash_table_foreach_handler, task_data);
 
 	/* Script file and Work dir */
 	str = g_hash_table_lookup(task_data->req_hash_table, "SCRIPT_FILE");
@@ -344,7 +344,7 @@ static void hev_scgi_handler_cgi_handle(HevSCGIHandler *handler, GObject *scgi_t
 					task_data, &pid, &error))
 	{
 		g_object_ref(scgi_task);
-		g_child_watch_add(pid, hev_scgi_handler_child_watch_handler, scgi_task);
+		g_child_watch_add(pid, hev_scgi_handler_child_watch_handler, task_data);
 	}
 	else
 	{
@@ -360,18 +360,14 @@ static void hev_scgi_handler_cgi_handle(HevSCGIHandler *handler, GObject *scgi_t
 static void req_hash_table_foreach_handler(gpointer key,
 			gpointer value, gpointer user_data)
 {
-	GObject *scgi_task = user_data;
-	HevSCGIHandlerCGITaskData *task_data = NULL;
+	HevSCGIHandlerCGITaskData *task_data = user_data;
 
-	task_data = g_object_get_data(scgi_task, "data");
 	task_data->envp[task_data->envi++] = g_strdup_printf("%s=%s",
 				key, value);
 }
 
-static void hev_scgi_handler_cgi_task_data_destroy_handler(gpointer data)
+static void hev_scgi_handler_cgi_task_data_free(HevSCGIHandlerCGITaskData *task_data)
 {
-	HevSCGIHandlerCGITaskData *task_data = data;
-
 	g_debug("%s:%d[%s]", __FILE__, __LINE__, __FUNCTION__);
 
 	g_free(task_data->user);
@@ -432,14 +428,13 @@ static void hev_scgi_handler_spawn_child_setup_handler(gpointer user_data)
 static void hev_scgi_handler_child_watch_handler(GPid pid, gint status,
 			gpointer user_data)
 {
-	GObject *scgi_task = G_OBJECT(user_data);
-	HevSCGIHandlerCGITaskData *task_data = NULL;
+	HevSCGIHandlerCGITaskData *task_data = user_data;
 
 	g_debug("%s:%d[%s]", __FILE__, __LINE__, __FUNCTION__);
 
-	task_data = g_object_get_data(scgi_task, "data");
 	g_unix_set_fd_nonblocking(task_data->fd, TRUE, NULL);
 	g_spawn_close_pid(pid);
-	g_object_unref(scgi_task);
+	g_object_unref(task_data->scgi_task);
+	hev_scgi_handler_cgi_task_data_free(task_data);
 }
 
