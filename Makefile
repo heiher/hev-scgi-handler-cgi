@@ -2,7 +2,7 @@
  
 PP=cpp
 CC=gcc
-CCFLAGS=-g -fPIC `pkg-config --cflags glib-2.0 gio-2.0` -I../hev-scgi-server-library/include
+CCFLAGS=-O3 -fPIC `pkg-config --cflags glib-2.0 gio-2.0` -I../hev-scgi-server-library/include
 LDFLAGS=-shared `pkg-config --libs glib-2.0 gio-2.0` -L../hev-scgi-server-library/bin -lhev-scgi-server
  
 SRCDIR=src
