@@ -1,4 +1,4 @@
-# Makefile for hev-scgi-server
+# Makefile for hev-scgi-handler-cgi
  
 PP=cpp
 CC=gcc
@@ -9,7 +9,7 @@ SRCDIR=src
 BINDIR=bin
 BUILDDIR=build
  
-TARGET=$(BINDIR)/libhev-scgi-server-cgi.so
+TARGET=$(BINDIR)/libhev-scgi-handler-cgi.so
 CCOBJSFILE=$(BUILDDIR)/ccobjs
 -include $(CCOBJSFILE)
 LDOBJS=$(patsubst $(SRCDIR)%.c,$(BUILDDIR)%.o,$(CCOBJS))
