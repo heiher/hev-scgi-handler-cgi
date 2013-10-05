@@ -8,6 +8,8 @@
  ============================================================================
  */
 
+#include <stdlib.h>
+#include <string.h>
 #include <hev-scgi-1.0.h>
 
 #ifdef G_OS_UNIX
@@ -89,6 +91,8 @@ static void hev_scgi_handler_cgi_task_data_free(HevSCGIHandlerCGITaskData *task_
 static void hev_scgi_handler_spawn_child_setup_handler(gpointer user_data);
 static void hev_scgi_handler_child_watch_handler(GPid pid, gint status,
 			gpointer user_data);
+static void hev_scgi_handler_response_error_message(HevSCGIHandlerCGITaskData *task_data,
+			const gchar *message);
 
 static void hev_scgi_handler_cgi_dispose(GObject *obj)
 {
@@ -388,20 +392,16 @@ static void hev_scgi_handler_spawn_child_setup_handler(gpointer user_data)
 		struct group *grp = NULL;
 
 		if(NULL == (grp = getgrnam(task_data->group)))
-		  g_error("%s:%d[%s]=>(%s)", __FILE__, __LINE__,
-					  __FUNCTION__, "Get group failed!");
+		  hev_scgi_handler_response_error_message(task_data, "Get group failed!");
 
 		if(-1 == setgid(grp->gr_gid))
-		  g_error("%s:%d[%s]=>(%s)", __FILE__, __LINE__,
-					  __FUNCTION__, "Set gid failed!");
+		  hev_scgi_handler_response_error_message(task_data, "Set gid failed!");
 		if(-1 == setgroups(0, NULL))
-		  g_error("%s:%d[%s]=>(%s)", __FILE__, __LINE__,
-					  __FUNCTION__, "Set groups failed!");
+		  hev_scgi_handler_response_error_message(task_data, "Set groups failed!");
 		if(task_data->user)
 		{
 			if(-1 == initgroups(task_data->user, grp->gr_gid))
-			  g_error("%s:%d[%s]=>(%s)", __FILE__, __LINE__,
-						  __FUNCTION__, "Init groups failed!");
+			  hev_scgi_handler_response_error_message(task_data, "Init groups failed!");
 		}
 	}
 
@@ -410,12 +410,10 @@ static void hev_scgi_handler_spawn_child_setup_handler(gpointer user_data)
 		struct passwd *pwd = NULL;
 
 		if(NULL == (pwd = getpwnam(task_data->user)))
-		  g_error("%s:%d[%s]=>(%s)", __FILE__, __LINE__,
-					  __FUNCTION__, "Get user failed!");
+		  hev_scgi_handler_response_error_message(task_data, "Get user failed!");
 
 		if(-1 == setuid(pwd->pw_uid))
-		  g_error("%s:%d[%s]=>(%s)", __FILE__, __LINE__,
-					  __FUNCTION__, "Set uid failed!");
+		  hev_scgi_handler_response_error_message(task_data, "Set uid failed!");
 	}
 #endif /* G_OS_UNIX */
 
@@ -436,5 +434,25 @@ static void hev_scgi_handler_child_watch_handler(GPid pid, gint status,
 	g_spawn_close_pid(pid);
 	g_object_unref(task_data->scgi_task);
 	hev_scgi_handler_cgi_task_data_free(task_data);
+}
+
+static void hev_scgi_handler_response_error_message(HevSCGIHandlerCGITaskData *task_data,
+			const gchar *message)
+{
+	GHashTable *res_hash_table = NULL;
+	GOutputStream *output_stream = NULL;
+
+	g_debug("%s:%d[%s]", __FILE__, __LINE__, __FUNCTION__);
+
+	res_hash_table =
+		hev_scgi_response_get_header_hash_table(HEV_SCGI_RESPONSE(task_data->scgi_response));
+	g_hash_table_insert(res_hash_table, g_strdup("Status"), g_strdup("500 Internal Server Error"));
+	g_hash_table_insert(res_hash_table, g_strdup("ContentType"), g_strdup("text/plain"));
+	hev_scgi_response_write_header(HEV_SCGI_RESPONSE(task_data->scgi_response), NULL);
+
+	output_stream = hev_scgi_response_get_output_stream(HEV_SCGI_RESPONSE(task_data->scgi_response));
+	g_output_stream_write_all(output_stream, message, strlen(message), NULL, NULL, NULL);
+
+	exit(EXIT_FAILURE);
 }
 
