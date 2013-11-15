@@ -68,6 +68,10 @@ struct _HevSCGIHandlerCGITaskData
 
 static void hev_scgi_handler_iface_init(HevSCGIHandlerInterface * iface);
 
+#ifdef STATIC_MODULE
+G_DEFINE_TYPE_EXTENDED(HevSCGIHandlerCGI, hev_scgi_handler_cgi, G_TYPE_OBJECT, 0,
+			G_IMPLEMENT_INTERFACE(HEV_TYPE_SCGI_HANDLER, hev_scgi_handler_iface_init));
+#else /* STATIC_MODULE */
 G_DEFINE_DYNAMIC_TYPE_EXTENDED(HevSCGIHandlerCGI, hev_scgi_handler_cgi, G_TYPE_OBJECT, 0,
 			G_IMPLEMENT_INTERFACE_DYNAMIC(HEV_TYPE_SCGI_HANDLER, hev_scgi_handler_iface_init));
 
@@ -78,6 +82,7 @@ void hev_scgi_handler_cgi_reg_type(GTypeModule *module)
 	if(G_TYPE_INVALID == HEV_TYPE_SCGI_HANDLER_CGI)
 	  hev_scgi_handler_cgi_register_type(module);
 }
+#endif /* !STATIC_MODULE */
 
 static const gchar * hev_scgi_handler_cgi_get_alias(HevSCGIHandler *handler);
 static const gchar * hev_scgi_handler_cgi_get_name(HevSCGIHandler *handler);

@@ -13,6 +13,7 @@
 
 #include "hev-scgi-handler-cgi.h"
 
+#ifndef STATIC_MODULE
 G_MODULE_EXPORT GType hev_scgi_handler_module_get_handler_type(GTypeModule *module)
 {
 	g_debug("%s:%d[%s]", __FILE__, __LINE__, __FUNCTION__);
@@ -21,4 +22,5 @@ G_MODULE_EXPORT GType hev_scgi_handler_module_get_handler_type(GTypeModule *modu
 
 	return HEV_TYPE_SCGI_HANDLER_CGI;
 }
+#endif /* !STATIC_MODULE */
 

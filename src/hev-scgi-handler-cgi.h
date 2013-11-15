@@ -15,13 +15,18 @@
 
 G_BEGIN_DECLS
 
-#define HEV_REGISTER_TYPE_SCGI_HANDLER_CGI(module) (hev_scgi_handler_cgi_reg_type(module))
 #define HEV_TYPE_SCGI_HANDLER_CGI	(hev_scgi_handler_cgi_get_type())
 #define HEV_SCGI_HANDLER_CGI(obj)	(G_TYPE_CHECK_INSTANCE_CAST((obj), HEV_TYPE_SCGI_HANDLER_CGI, HevSCGIHandlerCGI))
 #define HEV_IS_SCGI_HANDLER_CGI(obj)	(G_TYPE_CHECK_INSTANCE_TYPE((obj), HEV_TYPE_SCGI_HANDLER_CGI))
 #define HEV_SCGI_HANDLER_CGI_CLASS(klass)	(G_TYPE_CHECK_CLASS_CAST((klass), HEV_TYPE_SCGI_HANDLER_CGI, HevSCGIHandlerCGIClass))
 #define HEV_IS_SCGI_HANDLER_CGI_CLASS(klass)	(G_TYPE_CHECK_CLASS_TYPE((klass), HEV_TYPE_SCGI_HANDLER_CGI))
 #define HEV_SCGI_HANDLER_CGI_GET_CLASS(obj)	(G_TYPE_INSTANCE_GET_CLASS((obj), HEV_TYPE_SCGI_HANDLER_CGI, HevSCGIHandlerCGIClass))
+
+#ifdef STATIC_MODULE
+#define HEV_REGISTER_TYPE_SCGI_HANDLER_CGI() (HEV_TYPE_SCGI_HANDLER_CGI)
+#else /* STATIC_MODULE */
+#define HEV_REGISTER_TYPE_SCGI_HANDLER_CGI(module) (hev_scgi_handler_cgi_reg_type(module))
+#endif /* !STATIC_MODULE */
 
 typedef struct _HevSCGIHandlerCGI HevSCGIHandlerCGI;
 typedef struct _HevSCGIHandlerCGIClass HevSCGIHandlerCGIClass;
@@ -36,7 +41,10 @@ struct _HevSCGIHandlerCGIClass
 	GObjectClass parent_class;
 };
 
+#ifndef STATIC_MODULE
 void hev_scgi_handler_cgi_reg_type(GTypeModule *module);
+#endif /* !STATIC_MODULE */
+
 GType hev_scgi_handler_cgi_get_type(void);
 
 G_END_DECLS
