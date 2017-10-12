@@ -11,13 +11,12 @@
 #include <stdlib.h>
 #include <string.h>
 #include <hev-scgi-1.0.h>
+#include <glib-unix.h>
 
-#ifdef G_OS_UNIX
 #include <unistd.h>
 #include <sys/types.h>
 #include <pwd.h>
 #include <grp.h>
-#endif /* G_OS_UNIX */
 
 #include "hev-scgi-handler-cgi.h"
 
@@ -56,10 +55,8 @@ struct _HevSCGIHandlerCGITaskData
 	GObject *scgi_response;
 	GHashTable *req_hash_table;
 
-#ifdef G_OS_UNIX
 	gchar *user;
 	gchar *group;
-#endif
 
 	gchar **envp;
 	guint envi;
@@ -101,9 +98,6 @@ static void hev_scgi_handler_response_error_message(HevSCGIHandlerCGITaskData *t
 
 static void hev_scgi_handler_cgi_dispose(GObject *obj)
 {
-	HevSCGIHandlerCGI *self = HEV_SCGI_HANDLER_CGI(obj);
-	HevSCGIHandlerCGIPrivate *priv = HEV_SCGI_HANDLER_CGI_GET_PRIVATE(self);
-
 	g_debug("%s:%d[%s]", __FILE__, __LINE__, __FUNCTION__);
 
 	G_OBJECT_CLASS(hev_scgi_handler_cgi_parent_class)->dispose(obj);
@@ -333,7 +327,6 @@ static void hev_scgi_handler_cgi_handle(HevSCGIHandler *handler, GObject *scgi_t
 		  workdir = g_strdup(HEV_SCGI_HANDLER_CGI_WORK_DIR);
 	}
 
-#ifdef G_OS_UNIX
 	/* User and Group */
 	str = g_hash_table_lookup(task_data->req_hash_table, "_USER");
 	if(str)
@@ -346,7 +339,6 @@ static void hev_scgi_handler_cgi_handle(HevSCGIHandler *handler, GObject *scgi_t
 	  task_data->group = g_strdup(str);
 	else
 	  task_data->group = g_key_file_get_string(priv->config, "Module", "Group", NULL);
-#endif /* G_OS_UNIX */
 
 	if(g_spawn_async(workdir, argv, task_data->envp, G_SPAWN_DO_NOT_REAP_CHILD,
 					hev_scgi_handler_spawn_child_setup_handler,
@@ -372,7 +364,7 @@ static void req_hash_table_foreach_handler(gpointer key,
 	HevSCGIHandlerCGITaskData *task_data = user_data;
 
 	task_data->envp[task_data->envi++] = g_strdup_printf("%s=%s",
-				key, value);
+				(char *) key, (char *) value);
 }
 
 static void hev_scgi_handler_cgi_task_data_free(HevSCGIHandlerCGITaskData *task_data)
@@ -391,7 +383,6 @@ static void hev_scgi_handler_spawn_child_setup_handler(gpointer user_data)
 
 	g_debug("%s:%d[%s]", __FILE__, __LINE__, __FUNCTION__);
 
-#ifdef G_OS_UNIX
 	if(task_data->group)
 	{
 		struct group *grp = NULL;
@@ -420,7 +411,6 @@ static void hev_scgi_handler_spawn_child_setup_handler(gpointer user_data)
 		if(-1 == setuid(pwd->pw_uid))
 		  hev_scgi_handler_response_error_message(task_data, "Set uid failed!");
 	}
-#endif /* G_OS_UNIX */
 
 	g_unix_set_fd_nonblocking(task_data->fd, FALSE, NULL);
 
