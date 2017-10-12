@@ -21,7 +21,7 @@
 #include "hev-scgi-handler-cgi.h"
 
 #define HEV_SCGI_HANDLER_CGI_NAME		"HevSCGIHandlerCGI"
-#define HEV_SCGI_HANDLER_CGI_VERSION	"0.0.8"
+#define HEV_SCGI_HANDLER_CGI_VERSION	"1.0.0"
 
 #define HEV_SCGI_HANDLER_CGI_BIN_PATH	"/usr/bin/php-cgi"
 #define HEV_SCGI_HANDLER_CGI_WORK_DIR	"/tmp"
